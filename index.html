@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -203,10 +204,10 @@
         }
 
         .page {
-            margin-bottom: 10px;
+            margin: 10px auto;
             filter: invert(1) hue-rotate(180deg);
-            transition: transform 0.3s ease;
-            display: inline-block;
+            display: block;
+            zoom: 1;
         }
 
         .page.rotate-90 {
@@ -359,8 +360,12 @@
         /* Icon styles */
         .icon {
             font-style: normal;
-            font-size: 10px;
+            font-size: 12px;
             line-height: 1;
+            font-weight: normal;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         .divider {
@@ -376,38 +381,38 @@
         <div class="header-left">
             <input type="file" id="file-input" accept=".pdf" />
             <button class="nav-button" id="minimize-nav" title="Hide navigation">
-                <span class="icon">✕</span>
+                <span class="icon">⨯</span>
             </button>
         </div>
         <div class="header-center">
             <button class="control-button" id="zoom-out" title="Zoom Out">
-                <span class="icon">−</span>
+                <span class="icon">➖</span>
             </button>
             <span class="zoom-display" id="zoom-display">100%</span>
             <button class="control-button" id="zoom-in" title="Zoom In">
-                <span class="icon">+</span>
+                <span class="icon">➕</span>
             </button>
             <div class="divider"></div>
             <button class="control-button" id="rotate-left" title="Rotate Left">
-                <span class="icon">↺</span>
+                <span class="icon">↶</span>
             </button>
             <button class="control-button" id="rotate-right" title="Rotate Right">
-                <span class="icon">↻</span>
+                <span class="icon">↷</span>
             </button>
             <div class="divider"></div>
             <span class="page-counter" id="page-counter">-</span>
         </div>
         <div class="header-right">
             <button class="info-button" id="info-button" title="PDF Info">
-                <span class="icon">ⓘ</span>
+                <span class="icon">🛈</span>
             </button>
             <button class="hide-button" id="hide-button" title="Hide/Show PDF">
-                <span class="icon">H</span>
+                <span class="icon">🚫</span>
             </button>
         </div>
     </div>
 
-    <button class="show-nav-tab" id="show-nav-tab">⌃</button>
+    <button class="show-nav-tab" id="show-nav-tab">▼</button>
 
     <div class="pdf-container" id="pdf-container">
         <div class="loading" id="loading">Select a PDF file to view</div>
@@ -499,12 +504,12 @@
             
             if (isHidden) {
                 pdfContainer.classList.add('hidden');
-                hideButton.querySelector('.icon').textContent = 'S';
+                hideButton.querySelector('.icon').textContent = '👁';
                 hideButton.classList.add('show-mode');
                 hideButton.title = 'Show PDF';
             } else {
                 pdfContainer.classList.remove('hidden');
-                hideButton.querySelector('.icon').textContent = 'H';
+                hideButton.querySelector('.icon').textContent = '🚫';
                 hideButton.classList.remove('show-mode');
                 hideButton.title = 'Hide PDF';
             }
@@ -645,13 +650,14 @@
 
         function renderPage(pageNum, canvas) {
             pdfDoc.getPage(pageNum).then(function(page) {
-                const scale = baseScale * (currentZoom / 100);
-                const viewport = page.getViewport({ scale: scale });
+                const viewport = page.getViewport({ scale: baseScale });
                 
                 canvas.height = viewport.height;
                 canvas.width = viewport.width;
                 
                 const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
                 const renderContext = {
                     canvasContext: ctx,
                     viewport: viewport
@@ -663,13 +669,14 @@
 
         function updateZoom() {
             if (pdfDoc) {
-                // Re-render all pages with new zoom
-                for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-                    const canvas = document.getElementById(`page-${pageNum}`);
-                    if (canvas) {
-                        renderPage(pageNum, canvas);
-                    }
-                }
+                const zoomFactor = currentZoom / 100;
+                const pages = document.querySelectorAll('.page');
+                
+                // Use CSS zoom for instant scaling
+                pages.forEach(page => {
+                    page.style.zoom = zoomFactor;
+                });
+                
                 updateZoomDisplay();
                 updateZoomButtons();
             }
@@ -701,13 +708,27 @@
             });
         }
 
+        let scrollTimeout = null;
+        let isScrolling = false;
+
         function setupScrollListener() {
             pdfContainer.addEventListener('scroll', function() {
-                if (!isHidden) {
-                    currentPage = getCurrentPage();
-                    updatePageCounter();
+                if (!isHidden && !isScrolling) {
+                    isScrolling = true;
+                    
+                    // Clear any existing timeout
+                    if (scrollTimeout) {
+                        clearTimeout(scrollTimeout);
+                    }
+                    
+                    // Throttle scroll updates to every 100ms
+                    scrollTimeout = setTimeout(() => {
+                        currentPage = getCurrentPage();
+                        updatePageCounter();
+                        isScrolling = false;
+                    }, 100);
                 }
-            });
+            }, { passive: true }); // Passive for better performance
         }
 
         function getCurrentPage() {
@@ -715,18 +736,33 @@
             const containerHeight = pdfContainer.clientHeight;
             const centerY = containerTop + containerHeight / 2;
             
-            for (let i = 1; i <= totalPages; i++) {
-                const pageElement = document.getElementById(`page-${i}`);
+            // Use binary search for better performance with many pages
+            let left = 1;
+            let right = totalPages;
+            let result = 1;
+            
+            while (left <= right) {
+                const mid = Math.floor((left + right) / 2);
+                const pageElement = document.getElementById(`page-${mid}`);
+                
                 if (pageElement) {
                     const pageTop = pageElement.offsetTop;
                     const pageBottom = pageTop + pageElement.offsetHeight;
                     
                     if (centerY >= pageTop && centerY <= pageBottom) {
-                        return i;
+                        return mid;
+                    } else if (centerY < pageTop) {
+                        right = mid - 1;
+                    } else {
+                        left = mid + 1;
+                        result = mid;
                     }
+                } else {
+                    break;
                 }
             }
-            return 1;
+            
+            return Math.min(result, totalPages);
         }
 
         function updatePageCounter() {
