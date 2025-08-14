@@ -481,6 +481,9 @@
             <span class="page-counter" id="page-counter">-</span>
         </div>
         <div class="header-right">
+            <button class="info-button" id="auto-scroll-button" title="Auto Scroll">
+                <span class="icon">⏯</span>
+            </button>
             <button class="info-button" id="info-button" title="PDF Info">
                 <span class="icon">🛈</span>
             </button>
@@ -536,6 +539,22 @@
         </div>
     </div>
 
+    <!-- Auto Scroll Modal -->
+    <div class="modal" id="auto-scroll-modal">
+        <div class="modal-content">
+            <div class="modal-header">Auto Scroll</div>
+            <div class="modal-row">
+                <span class="modal-label">Speed:</span>
+                <input type="range" id="scroll-speed" min="10" max="200" value="50" style="flex: 1; margin-left: 10px;">
+                <span class="modal-value" id="speed-display">50px/s</span>
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-button" id="scroll-stop">Stop</button>
+                <button class="modal-button primary" id="scroll-start">Start</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -546,6 +565,8 @@
         let currentPage = 1;
         let currentRotation = 0; // 0, 90, 180, 270
         let currentMirror = 'none'; // 'none', 'horizontal', 'vertical'
+        let autoScrollInterval = null;
+        let autoScrollSpeed = 50;
         let currentZoom = 100; // percentage
         let baseScale = 2.0;
         let isHidden = false;
@@ -571,6 +592,12 @@
         const modalClose = document.getElementById('modal-close');
         const modalDownload = document.getElementById('modal-download');
         const progress = document.getElementById('progress');
+        const autoScrollButton = document.getElementById('auto-scroll-button');
+        const autoScrollModal = document.getElementById('auto-scroll-modal');
+        const scrollSpeed = document.getElementById('scroll-speed');
+        const speedDisplay = document.getElementById('speed-display');
+        const scrollStart = document.getElementById('scroll-start');
+        const scrollStop = document.getElementById('scroll-stop');
 
         fileInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
@@ -686,6 +713,39 @@
             }
         });
 
+        autoScrollButton.addEventListener('click', function() {
+            if (pdfDoc) {
+                autoScrollModal.classList.add('active');
+            }
+        });
+
+        autoScrollModal.addEventListener('click', function(e) {
+            if (e.target === autoScrollModal) {
+                autoScrollModal.classList.remove('active');
+            }
+        });
+
+        scrollSpeed.addEventListener('input', function() {
+            autoScrollSpeed = parseInt(scrollSpeed.value);
+            speedDisplay.textContent = autoScrollSpeed + 'px/s';
+        });
+
+        scrollStart.addEventListener('click', function() {
+            if (autoScrollInterval) clearInterval(autoScrollInterval);
+            autoScrollInterval = setInterval(() => {
+                pdfContainer.scrollTop += 1;
+            }, 1000 / autoScrollSpeed);
+            autoScrollModal.classList.remove('active');
+        });
+
+        scrollStop.addEventListener('click', function() {
+            if (autoScrollInterval) {
+                clearInterval(autoScrollInterval);
+                autoScrollInterval = null;
+            }
+            autoScrollModal.classList.remove('active');
+        });
+
         // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
             if (e.key === 'h' || e.key === 'H') {
@@ -716,6 +776,21 @@
             }
             if (e.key === 'Escape') {
                 modal.classList.remove('active');
+                autoScrollModal.classList.remove('active');
+            }
+            if (e.key === 'a' || e.key === 'A') {
+                autoScrollButton.click();
+            }
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (autoScrollInterval) {
+                    clearInterval(autoScrollInterval);
+                    autoScrollInterval = null;
+                } else if (pdfDoc) {
+                    autoScrollInterval = setInterval(() => {
+                        pdfContainer.scrollTop += 1;
+                    }, 1000 / autoScrollSpeed);
+                }
             }
         });
 
