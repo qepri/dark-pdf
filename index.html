@@ -264,6 +264,38 @@
             transform: rotate(270deg);
         }
 
+        .page.mirror-horizontal {
+            transform: scaleX(-1);
+        }
+
+        .page.mirror-vertical {
+            transform: scaleY(-1);
+        }
+
+        .page.rotate-90.mirror-horizontal {
+            transform: rotate(90deg) scaleX(-1);
+        }
+
+        .page.rotate-90.mirror-vertical {
+            transform: rotate(90deg) scaleY(-1);
+        }
+
+        .page.rotate-180.mirror-horizontal {
+            transform: rotate(180deg) scaleX(-1);
+        }
+
+        .page.rotate-180.mirror-vertical {
+            transform: rotate(180deg) scaleY(-1);
+        }
+
+        .page.rotate-270.mirror-horizontal {
+            transform: rotate(270deg) scaleX(-1);
+        }
+
+        .page.rotate-270.mirror-vertical {
+            transform: rotate(270deg) scaleY(-1);
+        }
+
         .loading {
             color: var(--text-disabled);
             font-size: var(--font-xl);
@@ -442,6 +474,10 @@
                 <span class="icon">↷</span>
             </button>
             <div class="divider"></div>
+            <button class="control-button" id="mirror-toggle" title="Mirror">
+                <span class="icon">⇄</span>
+            </button>
+            <div class="divider"></div>
             <span class="page-counter" id="page-counter">-</span>
         </div>
         <div class="header-right">
@@ -488,6 +524,10 @@
                 <span class="modal-label">Rotation:</span>
                 <span class="modal-value" id="modal-rotation">0°</span>
             </div>
+            <div class="modal-row">
+                <span class="modal-label">Mirror:</span>
+                <span class="modal-value" id="modal-mirror">None</span>
+            </div>
             <div class="progress" id="progress" style="display: none;"></div>
             <div class="modal-buttons">
                 <button class="modal-button" id="modal-close">Close</button>
@@ -505,6 +545,7 @@
         let fileSize = 0;
         let currentPage = 1;
         let currentRotation = 0; // 0, 90, 180, 270
+        let currentMirror = 'none'; // 'none', 'horizontal', 'vertical'
         let currentZoom = 100; // percentage
         let baseScale = 2.0;
         let isHidden = false;
@@ -525,6 +566,7 @@
         const zoomOut = document.getElementById('zoom-out');
         const rotateLeft = document.getElementById('rotate-left');
         const rotateRight = document.getElementById('rotate-right');
+        const mirrorToggle = document.getElementById('mirror-toggle');
         const modal = document.getElementById('modal');
         const modalClose = document.getElementById('modal-close');
         const modalDownload = document.getElementById('modal-download');
@@ -536,6 +578,7 @@
                 fileName = file.name;
                 fileSize = file.size;
                 currentRotation = 0;
+                currentMirror = 'none';
                 currentZoom = 100;
                 loadPDF(file);
             }
@@ -592,14 +635,33 @@
         rotateLeft.addEventListener('click', function() {
             if (pdfDoc) {
                 currentRotation = (currentRotation - 90 + 360) % 360;
-                applyRotation();
+                applyTransforms();
             }
         });
 
         rotateRight.addEventListener('click', function() {
             if (pdfDoc) {
                 currentRotation = (currentRotation + 90) % 360;
-                applyRotation();
+                applyTransforms();
+            }
+        });
+
+        mirrorToggle.addEventListener('click', function() {
+            if (pdfDoc) {
+                if (currentMirror === 'none') {
+                    currentMirror = 'horizontal';
+                    mirrorToggle.querySelector('.icon').textContent = '⇅';
+                    mirrorToggle.title = 'Mirror Vertical';
+                } else if (currentMirror === 'horizontal') {
+                    currentMirror = 'vertical';
+                    mirrorToggle.querySelector('.icon').textContent = '↔';
+                    mirrorToggle.title = 'Mirror Off';
+                } else {
+                    currentMirror = 'none';
+                    mirrorToggle.querySelector('.icon').textContent = '⇄';
+                    mirrorToggle.title = 'Mirror';
+                }
+                applyTransforms();
             }
         });
 
@@ -640,6 +702,9 @@
             }
             if (e.key === 'l' || e.key === 'L') {
                 rotateLeft.click();
+            }
+            if (e.key === 'm' || e.key === 'M') {
+                mirrorToggle.click();
             }
             if (e.key === '=' || e.key === '+') {
                 e.preventDefault();
@@ -698,7 +763,7 @@
             // Render initial visible pages
             renderVisiblePages();
             
-            applyRotation();
+            applyTransforms();
             updateZoomDisplay();
             updateZoomButtons();
             updatePageCounter();
@@ -787,19 +852,27 @@
             zoomIn.disabled = currentZoom >= 300;
         }
 
-        function applyRotation() {
+        function applyTransforms() {
             const pages = document.querySelectorAll('.page');
             pages.forEach(page => {
-                // Remove existing rotation classes
-                page.classList.remove('rotate-90', 'rotate-180', 'rotate-270');
+                // Remove all transform classes
+                page.classList.remove('rotate-90', 'rotate-180', 'rotate-270', 
+                                   'mirror-horizontal', 'mirror-vertical');
                 
-                // Add appropriate rotation class
+                // Add rotation class
                 if (currentRotation === 90) {
                     page.classList.add('rotate-90');
                 } else if (currentRotation === 180) {
                     page.classList.add('rotate-180');
                 } else if (currentRotation === 270) {
                     page.classList.add('rotate-270');
+                }
+                
+                // Add mirror class
+                if (currentMirror === 'horizontal') {
+                    page.classList.add('mirror-horizontal');
+                } else if (currentMirror === 'vertical') {
+                    page.classList.add('mirror-vertical');
                 }
             });
         }
@@ -877,6 +950,8 @@
             document.getElementById('modal-size').textContent = formatFileSize(fileSize);
             document.getElementById('modal-zoom').textContent = currentZoom + '%';
             document.getElementById('modal-rotation').textContent = currentRotation + '°';
+            document.getElementById('modal-mirror').textContent = currentMirror === 'none' ? 'None' : 
+                currentMirror.charAt(0).toUpperCase() + currentMirror.slice(1);
         }
 
         function formatFileSize(bytes) {
