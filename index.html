@@ -92,6 +92,16 @@
             border: none;
             filter: invert(1) hue-rotate(180deg);
             transition: transform 0.3s ease;
+            -webkit-filter: invert(1) hue-rotate(180deg);
+            background: #222;
+        }
+
+        /* Mobile-specific dark mode fallback */
+        @media (max-width: 768px) {
+            #pdf-viewer {
+                filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(1.2);
+                -webkit-filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(1.2);
+            }
         }
 
         button {
